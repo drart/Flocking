@@ -29999,6 +29999,61 @@ var fluid = fluid || require("infusion"),
         }
     });
 
+
+    /**
+     * UGen for byte swapping audio signals. Inspired by swap~ from 
+     * Johannes M Zmoelnig's Zexy library for PureData. DANGER LOUD!
+     *
+     * Inputs:
+     *   - source: the input signal to distort
+     */
+    flock.ugen.distortion.swap= function (inputs, output, options) {
+        var that = flock.ugen(inputs, output, options);
+
+        that.gen = function (numSamps) {
+            var m = that.model,
+                out = that.output,
+                source = that.inputs.source.output,
+                shortSource = flock.audio.convert.floatsToInts(source, flock.audio.convert.pcm.int16),
+                sourceInc = m.strides.source,
+                floatsource,
+                temp,
+                b1,
+                b2,
+                i,
+                j;
+
+            for (i = j = 0; i < numSamps; i++, j += sourceInc) {
+                //dist = Math.tanh( source[i] );
+                temp = shortSource[j] * 32768.;
+                b1 = temp & 0xff;
+                b2 = (temp >> 8) & 0xff;
+                temp = b1 << 8 | b2 << 0;
+                
+                out[i] = temp * ( 1. / 32768.);
+            }
+
+            m.unscaledValue = temp;
+            that.mulAdd(numSamps);
+            floatsource = flock.audio.convert.intsToFloats(out, flock.audio.convert.pcm.int16);
+            m.value = flock.ugen.lastOutputValue(numSamps, floatsource);
+        };
+
+        that.onInputChanged();
+
+        return that;
+    };
+
+    flock.ugenDefaults("flock.ugen.distortion.swap", {
+        rate: "audio",
+        inputs: {
+            source: null
+        },
+        ugenOptions: {
+            strideInputs: ["source"]
+        }
+    });
+
 }());
 ;/*
  * Flocking Dynamics Unit Generators
